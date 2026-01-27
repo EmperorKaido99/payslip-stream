@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import { downloadSingleFile, downloadAllAsZip } from '@/lib/downloadUtils';
 
 interface ResultsScreenProps {
   processedFiles: ProcessedFile[];
@@ -13,14 +14,19 @@ interface ResultsScreenProps {
 }
 
 export const ResultsScreen = ({ processedFiles, employeeCount, onProceedToEncryption }: ResultsScreenProps) => {
-  const handleDownloadAll = () => {
+  const handleDownloadAll = async () => {
     toast.success('Download started', {
       description: 'Your ZIP file is being prepared...',
     });
+    const currentDate = new Date();
+    const month = currentDate.toLocaleString('default', { month: 'long' });
+    const year = currentDate.getFullYear();
+    await downloadAllAsZip(processedFiles, false, `Payslips_${month}_${year}.zip`);
   };
 
-  const handleDownloadSingle = (fileName: string) => {
-    toast.success(`Downloading ${fileName}`);
+  const handleDownloadSingle = (file: ProcessedFile) => {
+    toast.success(`Downloading ${file.fileName}`);
+    downloadSingleFile(file, false);
   };
 
   const getStatusBadge = (status: ProcessedFile['status']) => {
@@ -84,7 +90,7 @@ export const ResultsScreen = ({ processedFiles, employeeCount, onProceedToEncryp
                         variant="ghost"
                         size="sm"
                         className="gap-1 text-primary hover:text-primary/80"
-                        onClick={() => handleDownloadSingle(file.fileName)}
+                        onClick={() => handleDownloadSingle(file)}
                       >
                         <Download className="w-4 h-4" />
                         Download
