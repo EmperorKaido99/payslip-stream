@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
+import { downloadAllAsZip } from '@/lib/downloadUtils';
 
 interface EncryptionModuleProps {
   processedFiles: ProcessedFile[];
@@ -20,10 +21,14 @@ export const EncryptionModule = ({
   isEncryptionComplete,
   onStartEncryption,
 }: EncryptionModuleProps) => {
-  const handleDownloadEncrypted = () => {
+  const handleDownloadEncrypted = async () => {
     toast.success('Download started', {
       description: 'Your encrypted ZIP file is being prepared...',
     });
+    const currentDate = new Date();
+    const month = currentDate.toLocaleString('default', { month: 'long' });
+    const year = currentDate.getFullYear();
+    await downloadAllAsZip(processedFiles, true, `Encrypted_Payslips_${month}_${year}.zip`);
   };
 
   const getStatusBadge = (status: ProcessedFile['status']) => {
