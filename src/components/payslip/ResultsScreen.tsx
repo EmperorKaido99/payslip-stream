@@ -24,9 +24,9 @@ export const ResultsScreen = ({ processedFiles, employeeCount, onProceedToEncryp
     await downloadAllAsZip(processedFiles, false, `Payslips_${month}_${year}.zip`);
   };
 
-  const handleDownloadSingle = (file: ProcessedFile) => {
+  const handleDownloadSingle = async (file: ProcessedFile) => {
     toast.success(`Downloading ${file.fileName}`);
-    downloadSingleFile(file, false);
+    await downloadSingleFile(file, false);
   };
 
   const getStatusBadge = (status: ProcessedFile['status']) => {
