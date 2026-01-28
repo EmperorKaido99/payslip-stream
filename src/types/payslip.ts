@@ -5,6 +5,12 @@ export interface Employee {
   id_number: string;
 }
 
+export interface EncryptionKeyData {
+  id_number: string;
+  name?: string;
+  surname?: string;
+}
+
 export interface ProcessedFile {
   id: string;
   fileName: string;
@@ -33,4 +39,5 @@ export interface WorkflowState {
   encryptionProgress: number;
   isProcessingComplete: boolean;
   isEncryptionComplete: boolean;
+  encryptionKeys: EncryptionKeyData[] | null;
 }
