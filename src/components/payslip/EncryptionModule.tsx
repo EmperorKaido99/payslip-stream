@@ -57,12 +57,12 @@ export const EncryptionModule = ({
           </div>
           <div>
             <CardTitle className="text-2xl">
-              {isEncryptionComplete ? 'Encryption Complete' : 'Encryption'}
+              {isEncryptionComplete ? 'Encryption Complete' : 'Password Protection'}
             </CardTitle>
             <CardDescription className="text-base">
               {isEncryptionComplete
-                ? `All ${processedFiles.length} files have been encrypted with employee IDs`
-                : 'Secure PDFs with employee IDs as passwords'}
+                ? `All ${processedFiles.length} files are now password-protected using each employee's ID number`
+                : 'Each PDF will be protected with the employee\'s ID number as the password'}
             </CardDescription>
           </div>
         </div>
@@ -86,7 +86,7 @@ export const EncryptionModule = ({
               <TableHeader className="sticky top-0 bg-card">
                 <TableRow className="bg-muted/50">
                   <TableHead className="font-semibold">File Name</TableHead>
-                  <TableHead className="font-semibold">Encryption Key</TableHead>
+                  <TableHead className="font-semibold">Password (Employee ID)</TableHead>
                   <TableHead className="font-semibold">Status</TableHead>
                 </TableRow>
               </TableHeader>
