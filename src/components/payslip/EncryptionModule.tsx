@@ -1,5 +1,5 @@
 import { Lock, Download, CheckCircle2, FileText } from 'lucide-react';
-import { ProcessedFile } from '@/types/payslip';
+import { ProcessedFile, EncryptionKeyData } from '@/types/payslip';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -7,19 +7,24 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { toast } from 'sonner';
 import { downloadAllAsZip } from '@/lib/downloadUtils';
+import { EncryptionKeyUpload } from './EncryptionKeyUpload';
 
 interface EncryptionModuleProps {
   processedFiles: ProcessedFile[];
   encryptionProgress: number;
   isEncryptionComplete: boolean;
+  encryptionKeys: EncryptionKeyData[] | null;
   onStartEncryption: () => void;
+  onKeysValidated: (keys: EncryptionKeyData[]) => void;
 }
 
 export const EncryptionModule = ({
   processedFiles,
   encryptionProgress,
   isEncryptionComplete,
+  encryptionKeys,
   onStartEncryption,
+  onKeysValidated,
 }: EncryptionModuleProps) => {
   const handleDownloadEncrypted = async () => {
     toast.success('Download started', {
@@ -43,6 +48,18 @@ export const EncryptionModule = ({
   };
 
   const isEncrypting = encryptionProgress > 0 && !isEncryptionComplete;
+  const keysReady = encryptionKeys !== null && encryptionKeys.length > 0;
+
+  // Phase 1: Upload encryption keys if not yet uploaded
+  if (!keysReady && !isEncryptionComplete) {
+    return (
+      <EncryptionKeyUpload
+        processedFiles={processedFiles}
+        onKeysValidated={onKeysValidated}
+        validatedKeys={encryptionKeys}
+      />
+    );
+  }
 
   return (
     <Card className="border-border shadow-sm">
@@ -57,12 +74,12 @@ export const EncryptionModule = ({
           </div>
           <div>
             <CardTitle className="text-2xl">
-              {isEncryptionComplete ? 'Encryption Complete' : 'Password Protection'}
+              {isEncryptionComplete ? 'Encryption Complete' : 'Ready to Encrypt'}
             </CardTitle>
             <CardDescription className="text-base">
               {isEncryptionComplete
                 ? `All ${processedFiles.length} files are now password-protected using each employee's ID number`
-                : 'Each PDF will be protected with the employee\'s ID number as the password'}
+                : `${processedFiles.length} files ready to encrypt with verified employee ID passwords`}
             </CardDescription>
           </div>
         </div>
@@ -91,22 +108,25 @@ export const EncryptionModule = ({
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {processedFiles.map((file) => (
-                  <TableRow key={file.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-primary" />
-                        <span className="font-medium">{file.fileName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
-                        {file.status === 'encrypted' ? file.employeeId : '••••••'}
-                      </code>
-                    </TableCell>
-                    <TableCell>{getStatusBadge(file.status)}</TableCell>
-                  </TableRow>
-                ))}
+                {processedFiles.map((file) => {
+                  const matchedKey = encryptionKeys?.find(k => k.id_number === file.employeeId);
+                  return (
+                    <TableRow key={file.id}>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-primary" />
+                          <span className="font-medium">{file.fileName}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
+                          {file.status === 'encrypted' || keysReady ? (matchedKey?.id_number || file.employeeId) : '••••••'}
+                        </code>
+                      </TableCell>
+                      <TableCell>{getStatusBadge(file.status)}</TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
@@ -114,7 +134,7 @@ export const EncryptionModule = ({
 
         {/* Action Buttons */}
         <div className="flex justify-end gap-3">
-          {!isEncryptionComplete && !isEncrypting && (
+          {!isEncryptionComplete && !isEncrypting && keysReady && (
             <Button className="gap-2" onClick={onStartEncryption}>
               <Lock className="w-4 h-4" />
               Encrypt All Files

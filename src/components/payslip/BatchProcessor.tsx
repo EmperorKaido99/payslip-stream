@@ -18,6 +18,7 @@ export const BatchProcessor = () => {
     uploadPdf,
     startProcessing,
     startEncryption,
+    setEncryptionKeys,
     loadSampleData,
     resetWorkflow,
     canProceedToPdf,
@@ -143,7 +144,9 @@ export const BatchProcessor = () => {
             processedFiles={state.processedFiles}
             encryptionProgress={state.encryptionProgress}
             isEncryptionComplete={state.isEncryptionComplete}
+            encryptionKeys={state.encryptionKeys}
             onStartEncryption={startEncryption}
+            onKeysValidated={setEncryptionKeys}
           />
         );
 

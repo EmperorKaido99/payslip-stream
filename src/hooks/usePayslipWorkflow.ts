@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { WorkflowState, WorkflowStep, UploadedFile, Employee, ProcessedFile } from '@/types/payslip';
+import { WorkflowState, WorkflowStep, UploadedFile, Employee, ProcessedFile, EncryptionKeyData } from '@/types/payslip';
 
 const generateMockEmployees = (count: number): Employee[] => {
   const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emily', 'Robert', 'Lisa', 'William', 'Emma'];
@@ -23,6 +23,7 @@ const initialState: WorkflowState = {
   encryptionProgress: 0,
   isProcessingComplete: false,
   isEncryptionComplete: false,
+  encryptionKeys: null,
 };
 
 export const usePayslipWorkflow = () => {
@@ -104,8 +105,12 @@ export const usePayslipWorkflow = () => {
     }, 500);
   }, []);
 
+  const setEncryptionKeys = useCallback((keys: EncryptionKeyData[]) => {
+    setState(prev => ({ ...prev, encryptionKeys: keys }));
+  }, []);
+
   const startEncryption = useCallback(() => {
-    setState(prev => ({ ...prev, currentStep: 'encryption', encryptionProgress: 0 }));
+    setState(prev => ({ ...prev, encryptionProgress: 0 }));
     
     let progress = 0;
     const interval = setInterval(() => {
@@ -166,7 +171,7 @@ export const usePayslipWorkflow = () => {
 
   const canProceedToPdf = state.excelFile !== null && state.employees.length > 0;
   const canProcess = state.excelFile !== null && state.pdfFile !== null;
-  const canEncrypt = state.isProcessingComplete && state.processedFiles.length > 0;
+  const canEncrypt = state.isProcessingComplete && state.processedFiles.length > 0 && state.encryptionKeys !== null;
 
   return {
     state,
@@ -175,6 +180,7 @@ export const usePayslipWorkflow = () => {
     uploadPdf,
     startProcessing,
     startEncryption,
+    setEncryptionKeys,
     loadSampleData,
     resetWorkflow,
     canProceedToPdf,
