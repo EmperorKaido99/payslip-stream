@@ -157,7 +157,7 @@ export const BatchProcessor = () => {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <Sidebar onLoadSample={loadSampleData} onReset={resetWorkflow} />
+      <Sidebar onReset={resetWorkflow} />
       
       <main className="flex-1 p-8">
         <div className="max-w-4xl mx-auto space-y-6">

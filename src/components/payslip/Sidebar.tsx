@@ -1,13 +1,11 @@
-import { Zap, FileStack, RotateCcw, HelpCircle } from 'lucide-react';
+import { Zap, FileStack, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SidebarProps {
-  onLoadSample: () => void;
   onReset: () => void;
 }
 
-export const Sidebar = ({ onLoadSample, onReset }: SidebarProps) => {
+export const Sidebar = ({ onReset }: SidebarProps) => {
   return (
     <div className="w-56 bg-sidebar text-sidebar-foreground flex flex-col min-h-screen">
       {/* Logo */}
@@ -34,22 +32,6 @@ export const Sidebar = ({ onLoadSample, onReset }: SidebarProps) => {
 
       {/* Actions */}
       <div className="p-3 space-y-2 border-t border-sidebar-border">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              className="w-full justify-start gap-3 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent"
-              onClick={onLoadSample}
-            >
-              <HelpCircle className="w-5 h-5" />
-              Try Sample Data
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">
-            Load demo data to test the workflow
-          </TooltipContent>
-        </Tooltip>
-
         <Button
           variant="ghost"
           className="w-full justify-start gap-3 text-sidebar-foreground/80 hover:text-sidebar-foreground hover:bg-sidebar-accent"
