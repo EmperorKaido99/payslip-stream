@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ProcessedFile } from '@/types/payslip';
+import { sanitizeEmployeeId } from '@/lib/downloadUtils';
 
 interface EncryptionKeyData {
   id_number: string;
@@ -42,8 +43,9 @@ export const EncryptionKeyUpload = ({
   const simulateParseExcel = (file: File): EncryptionKeyData[] => {
     // In production, this would use xlsx library to parse the actual file
     // For demo, we'll generate keys matching the processed files
+    // IMPORTANT: Sanitize all IDs to ensure consistency
     return processedFiles.map((pf) => ({
-      id_number: pf.employeeId,
+      id_number: sanitizeEmployeeId(pf.employeeId),
       name: pf.employeeName.split(' ')[0],
       surname: pf.employeeName.split(' ')[1] || '',
     }));
@@ -51,23 +53,32 @@ export const EncryptionKeyUpload = ({
 
   const validateKeys = (keys: EncryptionKeyData[]) => {
     const errors: string[] = [];
-    const keyIds = new Set(keys.map(k => k.id_number));
-    const fileIds = new Set(processedFiles.map(f => f.employeeId));
+    
+    // Sanitize all IDs for comparison
+    const sanitizedKeyIds = new Set(keys.map(k => sanitizeEmployeeId(k.id_number)));
+    const sanitizedFileIds = new Set(processedFiles.map(f => sanitizeEmployeeId(f.employeeId)));
+
+    console.log('Validating encryption keys...');
+    console.log('Key IDs:', Array.from(sanitizedKeyIds));
+    console.log('File IDs:', Array.from(sanitizedFileIds));
 
     // Check for missing keys (files without matching encryption key)
     processedFiles.forEach(file => {
-      if (!keyIds.has(file.employeeId)) {
-        errors.push(`Missing encryption key for: ${file.employeeName} (${file.employeeId})`);
+      const sanitizedFileId = sanitizeEmployeeId(file.employeeId);
+      if (!sanitizedKeyIds.has(sanitizedFileId)) {
+        errors.push(`Missing encryption key for: ${file.employeeName} (ID: ${sanitizedFileId})`);
       }
     });
 
     // Check for extra keys (keys without matching files)
     keys.forEach(key => {
-      if (!fileIds.has(key.id_number)) {
-        errors.push(`Extra key found: ${key.id_number} (no matching payslip)`);
+      const sanitizedKeyId = sanitizeEmployeeId(key.id_number);
+      if (!sanitizedFileIds.has(sanitizedKeyId)) {
+        errors.push(`Extra key found: ${sanitizedKeyId} (no matching payslip)`);
       }
     });
 
+    console.log(`Validation complete: ${errors.length} errors found`);
     return errors;
   };
 
@@ -88,14 +99,21 @@ export const EncryptionKeyUpload = ({
   }, [processedFiles]);
 
   const processFile = (file: File) => {
+    console.log('Processing encryption key file:', file.name);
     setUploadedFile(file);
+    
     const keys = simulateParseExcel(file);
+    console.log('Parsed keys:', keys);
+    
     const errors = validateKeys(keys);
     setParsedKeys(keys);
     setValidationErrors(errors);
     
     if (errors.length === 0) {
+      console.log('✓ All keys validated successfully');
       onKeysValidated(keys);
+    } else {
+      console.warn('✗ Key validation failed:', errors);
     }
   };
 
@@ -106,7 +124,10 @@ export const EncryptionKeyUpload = ({
   };
 
   const matchedCount = parsedKeys 
-    ? parsedKeys.filter(k => processedFiles.some(f => f.employeeId === k.id_number)).length 
+    ? parsedKeys.filter(k => {
+        const sanitizedKeyId = sanitizeEmployeeId(k.id_number);
+        return processedFiles.some(f => sanitizeEmployeeId(f.employeeId) === sanitizedKeyId);
+      }).length 
     : 0;
 
   const isFullyMatched = parsedKeys && validationErrors.length === 0 && matchedCount === processedFiles.length;
@@ -224,13 +245,16 @@ export const EncryptionKeyUpload = ({
                     </TableHeader>
                     <TableBody>
                       {processedFiles.map((file) => {
-                        const matchedKey = parsedKeys.find(k => k.id_number === file.employeeId);
+                        const sanitizedFileId = sanitizeEmployeeId(file.employeeId);
+                        const matchedKey = parsedKeys.find(k => 
+                          sanitizeEmployeeId(k.id_number) === sanitizedFileId
+                        );
                         return (
                           <TableRow key={file.id}>
                             <TableCell className="font-medium">{file.employeeName}</TableCell>
                             <TableCell>
                               <code className="px-2 py-1 bg-muted rounded text-sm font-mono">
-                                {matchedKey ? matchedKey.id_number : '—'}
+                                {matchedKey ? sanitizeEmployeeId(matchedKey.id_number) : '—'}
                               </code>
                             </TableCell>
                             <TableCell>
