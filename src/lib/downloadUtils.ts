@@ -3,6 +3,11 @@ import { saveAs } from 'file-saver';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib-with-encrypt';
 import { ProcessedFile } from '@/types/payslip';
 
+// Sanitize employee ID to ensure it's clean (remove whitespace, newlines, etc.)
+const sanitizeEmployeeId = (id: string): string => {
+  return id.trim().replace(/\s+/g, '').replace(/[\r\n]/g, '');
+};
+
 // Generate a PDF with actual content
 const generatePdfContent = async (
   fileName: string, 
@@ -53,9 +58,11 @@ const generatePdfContent = async (
     color: rgb(0.2, 0.2, 0.2),
   });
   
+  const sanitizedId = sanitizeEmployeeId(employeeId);
+  
   const details = [
     { label: 'Name:', value: employeeName },
-    { label: 'Employee ID:', value: employeeId },
+    { label: 'Employee ID:', value: sanitizedId },
     { label: 'Page Number:', value: `${pageNumber}` },
     { label: 'Generated:', value: new Date().toLocaleDateString() },
     { label: 'File:', value: fileName },
@@ -99,119 +106,174 @@ const generateEncryptedPdf = async (
   employeeName: string,
   pageNumber: number
 ): Promise<Uint8Array> => {
-  const pdfDoc = await PDFDocument.create();
-  const page = pdfDoc.addPage([612, 792]);
-  
-  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
-  const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
-  
-  const { height } = page.getSize();
-  
-  // Header with encryption indicator
-  page.drawText('PAYSLIP', {
-    x: 50,
-    y: height - 80,
-    size: 28,
-    font: helveticaBold,
-    color: rgb(0.1, 0.4, 0.2),
-  });
-  
-  page.drawText('Password Protected Document', {
-    x: 50,
-    y: height - 110,
-    size: 12,
-    font: helvetica,
-    color: rgb(0.3, 0.5, 0.3),
-  });
-  
-  page.drawText('PaySync Generated Document', {
-    x: 50,
-    y: height - 130,
-    size: 10,
-    font: helvetica,
-    color: rgb(0.4, 0.4, 0.4),
-  });
-  
-  // Separator line
-  page.drawLine({
-    start: { x: 50, y: height - 150 },
-    end: { x: 562, y: height - 150 },
-    thickness: 1,
-    color: rgb(0.8, 0.8, 0.8),
-  });
-  
-  // Employee details section
-  page.drawText('Employee Details', {
-    x: 50,
-    y: height - 190,
-    size: 14,
-    font: helveticaBold,
-    color: rgb(0.2, 0.2, 0.2),
-  });
-  
-  const details = [
-    { label: 'Name:', value: employeeName },
-    { label: 'Employee ID:', value: employeeId },
-    { label: 'Page Number:', value: `${pageNumber}` },
-    { label: 'Generated:', value: new Date().toLocaleDateString() },
-    { label: 'File:', value: fileName },
-  ];
-  
-  let yPos = height - 220;
-  details.forEach(({ label, value }) => {
-    page.drawText(label, {
+  try {
+    // Sanitize the employee ID to remove any formatting issues
+    const sanitizedPassword = sanitizeEmployeeId(employeeId);
+    
+    console.log(`Encrypting PDF for ${employeeName} with password: ${sanitizedPassword}`);
+    
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([612, 792]);
+    
+    const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const helvetica = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    
+    const { height } = page.getSize();
+    
+    // Header with encryption indicator
+    page.drawText('PAYSLIP', {
       x: 50,
-      y: yPos,
-      size: 11,
+      y: height - 80,
+      size: 28,
       font: helveticaBold,
+      color: rgb(0.1, 0.4, 0.2),
+    });
+    
+    page.drawText('🔒 Password Protected Document', {
+      x: 50,
+      y: height - 110,
+      size: 12,
+      font: helvetica,
+      color: rgb(0.3, 0.5, 0.3),
+    });
+    
+    page.drawText('PaySync Generated Document', {
+      x: 50,
+      y: height - 130,
+      size: 10,
+      font: helvetica,
+      color: rgb(0.4, 0.4, 0.4),
+    });
+    
+    // Separator line
+    page.drawLine({
+      start: { x: 50, y: height - 150 },
+      end: { x: 562, y: height - 150 },
+      thickness: 1,
+      color: rgb(0.8, 0.8, 0.8),
+    });
+    
+    // Security notice box
+    page.drawRectangle({
+      x: 50,
+      y: height - 180,
+      width: 512,
+      height: 50,
+      color: rgb(0.95, 0.97, 0.95),
+      borderColor: rgb(0.3, 0.5, 0.3),
+      borderWidth: 1,
+    });
+    
+    page.drawText('🔐 Security Information', {
+      x: 60,
+      y: height - 165,
+      size: 10,
+      font: helveticaBold,
+      color: rgb(0.2, 0.4, 0.2),
+    });
+    
+    page.drawText(`Password: Your Employee ID (${sanitizedPassword})`, {
+      x: 60,
+      y: height - 180,
+      size: 9,
+      font: helvetica,
       color: rgb(0.3, 0.3, 0.3),
     });
-    page.drawText(value, {
-      x: 150,
-      y: yPos,
-      size: 11,
-      font: helvetica,
+    
+    // Employee details section
+    page.drawText('Employee Details', {
+      x: 50,
+      y: height - 220,
+      size: 14,
+      font: helveticaBold,
       color: rgb(0.2, 0.2, 0.2),
     });
-    yPos -= 25;
-  });
-  
-  // Footer
-  page.drawText('This payslip is password-protected. Contact HR if you cannot access it.', {
-    x: 50,
-    y: 50,
-    size: 9,
-    font: helvetica,
-    color: rgb(0.5, 0.5, 0.5),
-  });
-  
-  // ACTUAL PDF ENCRYPTION using the employee ID as the password
-  // The userPassword is what the employee enters to open the PDF
-  // The ownerPassword is for admin access (using a fixed value)
-  pdfDoc.encrypt({
-    userPassword: employeeId,
-    ownerPassword: 'PaySyncAdmin2024',
-    permissions: {
-      printing: 'highResolution',
-      modifying: false,
-      copying: false,
-      annotating: false,
-      fillingForms: true,
-      contentAccessibility: true,
-      documentAssembly: false,
-    },
-  });
-  
-  return pdfDoc.save();
+    
+    const details = [
+      { label: 'Name:', value: employeeName },
+      { label: 'Employee ID:', value: sanitizedPassword },
+      { label: 'Page Number:', value: `${pageNumber}` },
+      { label: 'Generated:', value: new Date().toLocaleDateString() },
+      { label: 'Encryption Status:', value: 'AES-256 Encrypted' },
+      { label: 'File:', value: fileName },
+    ];
+    
+    let yPos = height - 250;
+    details.forEach(({ label, value }) => {
+      page.drawText(label, {
+        x: 50,
+        y: yPos,
+        size: 11,
+        font: helveticaBold,
+        color: rgb(0.3, 0.3, 0.3),
+      });
+      page.drawText(value, {
+        x: 180,
+        y: yPos,
+        size: 11,
+        font: helvetica,
+        color: rgb(0.2, 0.2, 0.2),
+      });
+      yPos -= 25;
+    });
+    
+    // Footer
+    page.drawText('This payslip is password-protected using AES-256 encryption.', {
+      x: 50,
+      y: 70,
+      size: 9,
+      font: helvetica,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    
+    page.drawText('Use your Employee ID as the password. Contact HR if you cannot access it.', {
+      x: 50,
+      y: 55,
+      size: 9,
+      font: helvetica,
+      color: rgb(0.5, 0.5, 0.5),
+    });
+    
+    // CRITICAL: Apply encryption BEFORE saving
+    // Using the sanitized employee ID as the password
+    pdfDoc.encrypt({
+      userPassword: sanitizedPassword,
+      ownerPassword: 'PaySyncAdmin2024!SecureOwner',
+      permissions: {
+        printing: 'highResolution',
+        modifying: false,
+        copying: false,
+        annotating: false,
+        fillingForms: true,
+        contentAccessibility: true,
+        documentAssembly: false,
+      },
+    });
+    
+    // Save the encrypted PDF
+    const pdfBytes = await pdfDoc.save();
+    
+    console.log(`✓ Successfully encrypted PDF for ${employeeName} (${pdfBytes.length} bytes)`);
+    
+    return pdfBytes;
+  } catch (error) {
+    console.error(`✗ Failed to encrypt PDF for ${employeeName}:`, error);
+    throw new Error(`PDF encryption failed for ${employeeName}: ${(error as Error).message}`);
+  }
 };
 
 export const downloadSingleFile = async (file: ProcessedFile, isEncrypted: boolean = false): Promise<void> => {
-  const pdfBytes = isEncrypted 
-    ? await generateEncryptedPdf(file.fileName, file.employeeId, file.employeeName, file.pageNumber)
-    : await generatePdfContent(file.fileName, file.employeeId, file.employeeName, file.pageNumber);
-  
-  const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
-  saveAs(blob, file.fileName);
+  try {
+    const pdfBytes = isEncrypted 
+      ? await generateEncryptedPdf(file.fileName, file.employeeId, file.employeeName, file.pageNumber)
+      : await generatePdfContent(file.fileName, file.employeeId, file.employeeName, file.pageNumber);
+    
+    const blob = new Blob([new Uint8Array(pdfBytes)], { type: 'application/pdf' });
+    saveAs(blob, file.fileName);
+  } catch (error) {
+    console.error(`Failed to download ${file.fileName}:`, error);
+    throw error;
+  }
 };
 
 export const downloadAllAsZip = async (
@@ -220,21 +282,43 @@ export const downloadAllAsZip = async (
   zipFileName: string = 'payslips.zip'
 ): Promise<void> => {
   const zip = new JSZip();
+  const errors: string[] = [];
 
-  // Generate all PDFs in parallel
+  // Generate all PDFs with error handling
   const pdfPromises = files.map(async (file) => {
-    const pdfBytes = isEncrypted 
-      ? await generateEncryptedPdf(file.fileName, file.employeeId, file.employeeName, file.pageNumber)
-      : await generatePdfContent(file.fileName, file.employeeId, file.employeeName, file.pageNumber);
-    return { fileName: file.fileName, pdfBytes };
+    try {
+      const pdfBytes = isEncrypted 
+        ? await generateEncryptedPdf(file.fileName, file.employeeId, file.employeeName, file.pageNumber)
+        : await generatePdfContent(file.fileName, file.employeeId, file.employeeName, file.pageNumber);
+      return { fileName: file.fileName, pdfBytes, success: true };
+    } catch (error) {
+      console.error(`Failed to generate PDF for ${file.employeeName}:`, error);
+      errors.push(`${file.employeeName}: ${(error as Error).message}`);
+      return { fileName: file.fileName, pdfBytes: null, success: false };
+    }
   });
 
-  const pdfs = await Promise.all(pdfPromises);
+  const results = await Promise.all(pdfPromises);
   
-  pdfs.forEach(({ fileName, pdfBytes }) => {
-    zip.file(fileName, pdfBytes);
+  // Add successful PDFs to zip
+  results.forEach(({ fileName, pdfBytes, success }) => {
+    if (success && pdfBytes) {
+      zip.file(fileName, pdfBytes);
+    }
   });
+
+  // If there were errors, add an error log file
+  if (errors.length > 0) {
+    const errorLog = `PDF Generation Errors:\n\n${errors.join('\n')}`;
+    zip.file('_ERRORS.txt', errorLog);
+    console.warn(`${errors.length} PDFs failed to generate. See _ERRORS.txt in the zip file.`);
+  }
 
   const content = await zip.generateAsync({ type: 'blob' });
   saveAs(content, zipFileName);
+  
+  console.log(`✓ Downloaded ${results.filter(r => r.success).length}/${files.length} PDFs successfully`);
 };
+
+// Export the sanitization function for use in other modules
+export { sanitizeEmployeeId };
