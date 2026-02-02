@@ -129,11 +129,11 @@ const generateEncryptedPdf = async (
       color: rgb(0.1, 0.4, 0.2),
     });
     
-    page.drawText('🔒 Password Protected Document', {
+    page.drawText('PASSWORD PROTECTED DOCUMENT', {
       x: 50,
       y: height - 110,
       size: 12,
-      font: helvetica,
+      font: helveticaBold,
       color: rgb(0.3, 0.5, 0.3),
     });
     
@@ -164,7 +164,7 @@ const generateEncryptedPdf = async (
       borderWidth: 1,
     });
     
-    page.drawText('🔐 Security Information', {
+    page.drawText('SECURITY INFORMATION', {
       x: 60,
       y: height - 165,
       size: 10,
