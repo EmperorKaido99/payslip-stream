@@ -1,16 +1,48 @@
 import { useState, useCallback } from 'react';
 import { WorkflowState, WorkflowStep, UploadedFile, Employee, ProcessedFile, EncryptionKeyData } from '@/types/payslip';
+import * as XLSX from 'xlsx';
 
-const generateMockEmployees = (count: number): Employee[] => {
-  const firstNames = ['John', 'Jane', 'Michael', 'Sarah', 'David', 'Emily', 'Robert', 'Lisa', 'William', 'Emma'];
-  const lastNames = ['Smith', 'Johnson', 'Williams', 'Brown', 'Jones', 'Garcia', 'Miller', 'Davis', 'Rodriguez', 'Martinez'];
-  
-  return Array.from({ length: count }, (_, i) => ({
-    id: `emp-${i + 1}`,
-    name: firstNames[i % firstNames.length],
-    surname: lastNames[i % lastNames.length],
-    id_number: `ID${String(100000 + i).padStart(6, '0')}`,
-  }));
+const parseExcelFile = (file: File): Promise<Employee[]> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      try {
+        const data = e.target?.result;
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = XLSX.utils.sheet_to_json(worksheet);
+        
+        console.log('Parsed Excel data:', jsonData);
+        
+        // Map the Excel columns to our Employee interface
+        // Support various column name formats
+        const employees: Employee[] = jsonData.map((row: any, index: number) => {
+          // Try different column name variations
+          const name = row.name || row.Name || row.NAME || row.first_name || row.FirstName || row.firstname || '';
+          const surname = row.surname || row.Surname || row.SURNAME || row.last_name || row.LastName || row.lastname || '';
+          const id_number = row.id_number || row.ID_Number || row.ID_NUMBER || row.id || row.ID || row.employee_id || row.EmployeeID || '';
+          
+          return {
+            id: `emp-${index + 1}`,
+            name: String(name).trim(),
+            surname: String(surname).trim(),
+            id_number: String(id_number).trim(),
+          };
+        }).filter(emp => emp.name && emp.id_number); // Filter out empty rows
+        
+        console.log('Mapped employees:', employees);
+        resolve(employees);
+      } catch (error) {
+        console.error('Error parsing Excel file:', error);
+        reject(error);
+      }
+    };
+    
+    reader.onerror = () => reject(new Error('Failed to read file'));
+    reader.readAsArrayBuffer(file);
+  });
 };
 
 const initialState: WorkflowState = {
@@ -33,7 +65,7 @@ export const usePayslipWorkflow = () => {
     setState(prev => ({ ...prev, currentStep: step }));
   }, []);
 
-  const uploadExcel = useCallback((file: File) => {
+  const uploadExcel = useCallback(async (file: File) => {
     const uploadedFile: UploadedFile = {
       file,
       name: file.name,
@@ -41,15 +73,25 @@ export const usePayslipWorkflow = () => {
       type: 'excel',
     };
     
-    // Generate mock employees (between 5-15 for demo)
-    const employeeCount = Math.floor(Math.random() * 11) + 5;
-    const mockEmployees = generateMockEmployees(employeeCount);
-    
-    setState(prev => ({
-      ...prev,
-      excelFile: uploadedFile,
-      employees: mockEmployees,
-    }));
+    try {
+      // Parse the actual Excel file
+      const employees = await parseExcelFile(file);
+      console.log(`Parsed ${employees.length} employees from Excel file`);
+      
+      setState(prev => ({
+        ...prev,
+        excelFile: uploadedFile,
+        employees: employees,
+      }));
+    } catch (error) {
+      console.error('Failed to parse Excel file:', error);
+      // Set file but with empty employees on error
+      setState(prev => ({
+        ...prev,
+        excelFile: uploadedFile,
+        employees: [],
+      }));
+    }
   }, []);
 
   const uploadPdf = useCallback((file: File) => {
@@ -132,7 +174,18 @@ export const usePayslipWorkflow = () => {
   }, []);
 
   const loadSampleData = useCallback(() => {
-    const mockEmployees = generateMockEmployees(8);
+    // Sample data for demo purposes
+    const sampleEmployees: Employee[] = [
+      { id: 'emp-1', name: 'John', surname: 'Smith', id_number: 'ID100001' },
+      { id: 'emp-2', name: 'Jane', surname: 'Johnson', id_number: 'ID100002' },
+      { id: 'emp-3', name: 'Michael', surname: 'Williams', id_number: 'ID100003' },
+      { id: 'emp-4', name: 'Sarah', surname: 'Brown', id_number: 'ID100004' },
+      { id: 'emp-5', name: 'David', surname: 'Jones', id_number: 'ID100005' },
+      { id: 'emp-6', name: 'Emily', surname: 'Garcia', id_number: 'ID100006' },
+      { id: 'emp-7', name: 'Robert', surname: 'Miller', id_number: 'ID100007' },
+      { id: 'emp-8', name: 'Lisa', surname: 'Davis', id_number: 'ID100008' },
+    ];
+    
     const currentDate = new Date();
     const month = currentDate.toLocaleString('default', { month: 'long' });
     const year = currentDate.getFullYear();
@@ -151,8 +204,8 @@ export const usePayslipWorkflow = () => {
         size: 1048576,
         type: 'pdf',
       },
-      employees: mockEmployees,
-      processedFiles: mockEmployees.map((emp, index) => ({
+      employees: sampleEmployees,
+      processedFiles: sampleEmployees.map((emp, index) => ({
         id: `file-${index + 1}`,
         fileName: `${emp.name}_${emp.surname}_${month}_${year}.pdf`,
         employeeId: emp.id_number,
