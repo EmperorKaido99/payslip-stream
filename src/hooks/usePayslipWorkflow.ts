@@ -14,25 +14,62 @@ const parseExcelFile = (file: File): Promise<Employee[]> => {
         const worksheet = workbook.Sheets[sheetName];
         const jsonData = XLSX.utils.sheet_to_json(worksheet);
         
-        console.log('Parsed Excel data:', jsonData);
+        console.log('Raw Excel data:', jsonData);
+        
+        if (jsonData.length === 0) {
+          console.warn('Excel file is empty or has no data rows');
+          resolve([]);
+          return;
+        }
+        
+        // Log available columns for debugging
+        const firstRow = jsonData[0] as Record<string, any>;
+        const availableColumns = Object.keys(firstRow);
+        console.log('Available columns in Excel:', availableColumns);
+        
+        // Find matching columns (case-insensitive)
+        const findColumn = (row: Record<string, any>, ...variations: string[]): string => {
+          for (const variation of variations) {
+            const key = Object.keys(row).find(k => k.toLowerCase() === variation.toLowerCase());
+            if (key && row[key] !== undefined && row[key] !== null && row[key] !== '') {
+              return String(row[key]).trim();
+            }
+          }
+          return '';
+        };
         
         // Map the Excel columns to our Employee interface
-        // Support various column name formats
         const employees: Employee[] = jsonData.map((row: any, index: number) => {
-          // Try different column name variations
-          const name = row.name || row.Name || row.NAME || row.first_name || row.FirstName || row.firstname || '';
-          const surname = row.surname || row.Surname || row.SURNAME || row.last_name || row.LastName || row.lastname || '';
-          const id_number = row.id_number || row.ID_Number || row.ID_NUMBER || row.id || row.ID || row.employee_id || row.EmployeeID || '';
+          const name = findColumn(row, 'name', 'first_name', 'firstname', 'first name', 'employee_name', 'employeename');
+          const surname = findColumn(row, 'surname', 'last_name', 'lastname', 'last name', 'family_name');
+          const id_number = findColumn(row, 'id_number', 'id', 'employee_id', 'employeeid', 'emp_id', 'empid', 'id number', 'idnumber', 'national_id', 'staff_id', 'staffid');
           
           return {
             id: `emp-${index + 1}`,
-            name: String(name).trim(),
-            surname: String(surname).trim(),
-            id_number: String(id_number).trim(),
+            name,
+            surname,
+            id_number,
           };
-        }).filter(emp => emp.name && emp.id_number); // Filter out empty rows
+        }).filter(emp => {
+          // Only require id_number - name can be optional
+          const hasId = emp.id_number.length > 0;
+          const hasName = emp.name.length > 0 || emp.surname.length > 0;
+          
+          if (!hasId) {
+            console.warn(`Row skipped - missing ID number:`, emp);
+          }
+          
+          return hasId && hasName;
+        });
         
-        console.log('Mapped employees:', employees);
+        console.log(`Successfully parsed ${employees.length} employees from ${jsonData.length} rows`);
+        console.log('Parsed employees:', employees);
+        
+        if (employees.length === 0 && jsonData.length > 0) {
+          console.error('No employees parsed. Please check that your Excel has columns for: name/first_name AND id_number/id/employee_id');
+          console.error('Your columns are:', availableColumns);
+        }
+        
         resolve(employees);
       } catch (error) {
         console.error('Error parsing Excel file:', error);
