@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { WorkflowState, WorkflowStep, UploadedFile, Employee, ProcessedFile, EncryptionKeyData } from '@/types/payslip';
 import * as XLSX from 'xlsx';
+import { setOriginalPdfBytes, clearOriginalPdfBytes, getPdfPageCount } from '@/lib/pdfSplitter';
 
 const parseExcelFile = (file: File): Promise<Employee[]> => {
   return new Promise((resolve, reject) => {
@@ -131,7 +132,7 @@ export const usePayslipWorkflow = () => {
     }
   }, []);
 
-  const uploadPdf = useCallback((file: File) => {
+  const uploadPdf = useCallback(async (file: File) => {
     const uploadedFile: UploadedFile = {
       file,
       name: file.name,
@@ -139,10 +140,27 @@ export const usePayslipWorkflow = () => {
       type: 'pdf',
     };
     
-    setState(prev => ({
-      ...prev,
-      pdfFile: uploadedFile,
-    }));
+    try {
+      // Read the PDF file as bytes and store it for later splitting
+      const arrayBuffer = await file.arrayBuffer();
+      const pdfBytes = new Uint8Array(arrayBuffer);
+      setOriginalPdfBytes(pdfBytes);
+      
+      // Get the page count for validation
+      const pageCount = await getPdfPageCount(pdfBytes);
+      console.log(`PDF loaded: ${file.name} with ${pageCount} pages`);
+      
+      setState(prev => ({
+        ...prev,
+        pdfFile: uploadedFile,
+      }));
+    } catch (error) {
+      console.error('Failed to load PDF:', error);
+      setState(prev => ({
+        ...prev,
+        pdfFile: uploadedFile,
+      }));
+    }
   }, []);
 
   const startProcessing = useCallback(() => {
@@ -256,6 +274,7 @@ export const usePayslipWorkflow = () => {
   }, []);
 
   const resetWorkflow = useCallback(() => {
+    clearOriginalPdfBytes();
     setState(initialState);
   }, []);
 
