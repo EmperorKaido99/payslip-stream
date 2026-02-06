@@ -1,5 +1,6 @@
 import { PDFDocument } from 'pdf-lib-with-encrypt';
 import { ProcessedFile } from '@/types/payslip';
+import { encryptPdfViaAzure } from './azureEncryptionService';
 
 // Store the original PDF bytes in memory for later splitting
 let originalPdfBytes: Uint8Array | null = null;
@@ -67,50 +68,20 @@ export const extractAndEncryptPage = async (
   pageNumber: number,
   password: string
 ): Promise<Uint8Array> => {
-  if (!originalPdfBytes) {
-    throw new Error('No PDF loaded. Please upload a PDF first.');
-  }
+  // First extract the page as an unencrypted single-page PDF
+  const pageBytes = await extractPageFromPdf(pageNumber);
 
+  // Send to Azure Function for encryption
   try {
-    // Load the original PDF
-    const originalPdf = await PDFDocument.load(originalPdfBytes);
-    const pageCount = originalPdf.getPageCount();
-    
-    if (pageNumber < 1 || pageNumber > pageCount) {
-      throw new Error(`Page ${pageNumber} does not exist. PDF has ${pageCount} pages.`);
-    }
-
-    // Create a new PDF with just the requested page
-    const newPdf = await PDFDocument.create();
-    
-    // Copy the page (pageNumber is 1-indexed, but copyPages uses 0-indexed)
-    const [copiedPage] = await newPdf.copyPages(originalPdf, [pageNumber - 1]);
-    newPdf.addPage(copiedPage);
-
-    // Apply encryption with the password
-    const sanitizedPassword = password.trim().replace(/\s+/g, '').replace(/[\r\n]/g, '');
-    
-    newPdf.encrypt({
-      userPassword: sanitizedPassword,
-      ownerPassword: 'PaySyncAdmin2024!SecureOwner',
-      permissions: {
-        printing: 'highResolution',
-        modifying: false,
-        copying: false,
-        annotating: false,
-        fillingForms: true,
-        contentAccessibility: true,
-        documentAssembly: false,
-      },
-    });
-
-    // Save and return the encrypted single-page PDF
-    const pdfBytes = await newPdf.save();
-    console.log(`Extracted and encrypted page ${pageNumber} with password (${pdfBytes.length} bytes)`);
-    
-    return pdfBytes;
+    const encryptedBytes = await encryptPdfViaAzure(
+      pageBytes,
+      password,
+      `page_${pageNumber}.pdf`
+    );
+    console.log(`Encrypted page ${pageNumber} via Azure Function (${encryptedBytes.length} bytes)`);
+    return encryptedBytes;
   } catch (error) {
-    console.error(`Failed to extract/encrypt page ${pageNumber}:`, error);
+    console.error(`Azure encryption failed for page ${pageNumber}:`, error);
     throw error;
   }
 };
