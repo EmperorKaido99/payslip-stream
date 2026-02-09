@@ -4,10 +4,16 @@ import { encryptPdfViaAzure } from './azureEncryptionService';
 
 // Store the original PDF bytes in memory for later splitting
 let originalPdfBytes: Uint8Array | null = null;
+let databaseFileName: string | null = null;
 
 export const setOriginalPdfBytes = (bytes: Uint8Array) => {
   originalPdfBytes = bytes;
   console.log(`Stored original PDF (${bytes.length} bytes) for splitting`);
+};
+
+export const setDatabaseFileName = (fileName: string) => {
+  databaseFileName = fileName;
+  console.log(`Stored database filename: ${fileName}`);
 };
 
 export const getOriginalPdfBytes = (): Uint8Array | null => {
@@ -16,6 +22,7 @@ export const getOriginalPdfBytes = (): Uint8Array | null => {
 
 export const clearOriginalPdfBytes = () => {
   originalPdfBytes = null;
+  databaseFileName = null;
 };
 
 export const getPdfPageCount = async (pdfBytes: Uint8Array): Promise<number> => {
@@ -63,11 +70,15 @@ export const extractPageFromPdf = async (
   }
 };
 
-// Extract a single page and encrypt it with a password
+// Extract a single page and encrypt it via Azure
 export const extractAndEncryptPage = async (
   pageNumber: number,
-  password: string
+  employeeId: string
 ): Promise<Uint8Array> => {
+  if (!databaseFileName) {
+    throw new Error('No database file specified. Please upload the employee database first.');
+  }
+
   // First extract the page as an unencrypted single-page PDF
   const pageBytes = await extractPageFromPdf(pageNumber);
 
@@ -75,8 +86,8 @@ export const extractAndEncryptPage = async (
   try {
     const encryptedBytes = await encryptPdfViaAzure(
       pageBytes,
-      password,
-      `page_${pageNumber}.pdf`
+      employeeId,
+      databaseFileName
     );
     console.log(`Encrypted page ${pageNumber} via Azure Function (${encryptedBytes.length} bytes)`);
     return encryptedBytes;
