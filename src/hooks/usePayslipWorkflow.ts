@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { WorkflowState, WorkflowStep, UploadedFile, Employee, ProcessedFile, EncryptionKeyData } from '@/types/payslip';
 import * as XLSX from 'xlsx';
-import { setOriginalPdfBytes, clearOriginalPdfBytes, getPdfPageCount } from '@/lib/pdfSplitter';
+import { setOriginalPdfBytes, clearOriginalPdfBytes, getPdfPageCount, extractAndEncryptPage } from '@/lib/pdfSplitter';
 
 const parseExcelFile = (file: File): Promise<Employee[]> => {
   return new Promise((resolve, reject) => {
@@ -206,26 +206,50 @@ export const usePayslipWorkflow = () => {
     setState(prev => ({ ...prev, encryptionKeys: keys }));
   }, []);
 
-  const startEncryption = useCallback(() => {
+  const startEncryption = useCallback(async () => {
     setState(prev => ({ ...prev, encryptionProgress: 0 }));
-    
-    let progress = 0;
-    const interval = setInterval(() => {
-      progress += Math.random() * 20 + 10;
-      if (progress >= 100) {
-        progress = 100;
-        clearInterval(interval);
-        
+
+    const currentState = await new Promise<WorkflowState>(resolve => {
+      setState(prev => { resolve(prev); return prev; });
+    });
+
+    const files = currentState.processedFiles;
+    const total = files.length;
+    let completed = 0;
+    const errors: string[] = [];
+
+    for (const file of files) {
+      try {
+        await extractAndEncryptPage(file.pageNumber, file.employeeId);
+        completed++;
+        const progress = Math.round((completed / total) * 100);
         setState(prev => ({
           ...prev,
-          encryptionProgress: 100,
-          isEncryptionComplete: true,
-          processedFiles: prev.processedFiles.map(f => ({ ...f, status: 'encrypted' as const })),
+          encryptionProgress: Math.min(progress, 99),
+          processedFiles: prev.processedFiles.map(f =>
+            f.id === file.id ? { ...f, status: 'encrypted' as const } : f
+          ),
         }));
-      } else {
-        setState(prev => ({ ...prev, encryptionProgress: Math.min(progress, 99) }));
+      } catch (error) {
+        console.error(`Failed to encrypt ${file.fileName}:`, error);
+        errors.push(`${file.fileName}: ${(error as Error).message}`);
+        completed++;
+        setState(prev => ({
+          ...prev,
+          encryptionProgress: Math.round((completed / total) * 100),
+        }));
       }
-    }, 400);
+    }
+
+    setState(prev => ({
+      ...prev,
+      encryptionProgress: 100,
+      isEncryptionComplete: errors.length === 0 || completed > errors.length,
+    }));
+
+    if (errors.length > 0) {
+      console.warn(`${errors.length}/${total} files failed encryption`);
+    }
   }, []);
 
   const loadSampleData = useCallback(() => {
