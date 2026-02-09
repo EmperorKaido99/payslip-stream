@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { WorkflowState, WorkflowStep, UploadedFile, Employee, ProcessedFile, EncryptionKeyData } from '@/types/payslip';
 import * as XLSX from 'xlsx';
-import { setOriginalPdfBytes, clearOriginalPdfBytes, getPdfPageCount, extractAndEncryptPage } from '@/lib/pdfSplitter';
+import { setOriginalPdfBytes, setDatabaseFileName, clearOriginalPdfBytes, getPdfPageCount, extractAndEncryptPage } from '@/lib/pdfSplitter';
 
 const parseExcelFile = (file: File): Promise<Employee[]> => {
   return new Promise((resolve, reject) => {
@@ -116,6 +116,7 @@ export const usePayslipWorkflow = () => {
       const employees = await parseExcelFile(file);
       console.log(`Parsed ${employees.length} employees from Excel file`);
       
+      setDatabaseFileName(file.name);
       setState(prev => ({
         ...prev,
         excelFile: uploadedFile,
