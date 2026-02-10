@@ -10,29 +10,51 @@ export const encryptPdfViaAzure = async (
   employeeId: string,
   databaseFileName: string
 ): Promise<Uint8Array> => {
-  // Convert PDF bytes to base64
-  const pdfBase64 = btoa(
-    String.fromCharCode(...new Uint8Array(pdfBytes))
-  );
-
-  // Send JSON payload to Azure Function
-  const response = await fetch(`${AZURE_FUNCTION_URL}/api/encrypt`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      pdfBase64: pdfBase64,
-      employeeId: employeeId,
-      databaseFileName: databaseFileName,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text().catch(() => 'Unknown error');
-    throw new Error(`Azure encryption failed (${response.status}): ${errorText}`);
+  console.log(`🔐 Starting encryption for ${employeeId} (${pdfBytes.length} bytes)`);
+  
+  // Convert PDF bytes to base64 in chunks to avoid stack overflow
+  // The spread operator (...pdfBytes) can cause "Maximum call stack size exceeded" for large arrays
+  let binary = '';
+  const chunkSize = 8192; // Process 8KB at a time
+  for (let i = 0; i < pdfBytes.length; i += chunkSize) {
+    const chunk = pdfBytes.slice(i, i + chunkSize);
+    binary += String.fromCharCode(...chunk);
   }
+  const pdfBase64 = btoa(binary);
+  
+  console.log(`📤 Sending to Azure Function: ${AZURE_FUNCTION_URL}/api/encrypt`);
+  console.log(`📋 Payload: employeeId=${employeeId}, database=${databaseFileName}, size=${pdfBytes.length} bytes`);
 
-  const encryptedBuffer = await response.arrayBuffer();
-  return new Uint8Array(encryptedBuffer);
+  try {
+    // Send JSON payload to Azure Function
+    const response = await fetch(`${AZURE_FUNCTION_URL}/api/encrypt`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      mode: 'cors',
+      body: JSON.stringify({
+        pdfBase64: pdfBase64,
+        employeeId: employeeId,
+        databaseFileName: databaseFileName,
+      }),
+    });
+
+    console.log(`📥 Azure Function response: ${response.status} ${response.statusText}`);
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => 'Unknown error');
+      console.error('❌ Azure encryption error:', errorText);
+      throw new Error(`Azure encryption failed (${response.status}): ${errorText}`);
+    }
+
+    const encryptedBuffer = await response.arrayBuffer();
+    console.log(`✅ Encryption successful: ${encryptedBuffer.byteLength} bytes`);
+    return new Uint8Array(encryptedBuffer);
+  } catch (error) {
+    console.error('❌ Failed to connect to Azure Function:', error);
+    console.error('   URL:', `${AZURE_FUNCTION_URL}/api/encrypt`);
+    console.error('   Error type:', error instanceof TypeError ? 'Network/CORS' : 'Other');
+    throw error;
+  }
 };
