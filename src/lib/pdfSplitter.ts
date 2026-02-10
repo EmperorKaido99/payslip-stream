@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib-with-encrypt';
+import { PDFDocument } from 'pdf-lib';
 import { ProcessedFile } from '@/types/payslip';
 import { encryptPdfViaAzure } from './azureEncryptionService';
 
