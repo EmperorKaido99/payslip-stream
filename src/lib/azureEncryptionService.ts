@@ -1,4 +1,4 @@
-const AZURE_FUNCTION_URL = 'https://payslip-processor-func-czh9fqrfwgaeeeefah.southafricanorth-01.azurewebsites.net';
+const AZURE_FUNCTION_URL = 'https://payslip-processor-func-czh9fwfwgaeeeefah.southafricanorth-01.azurewebsites.net';
 
 /**
  * Send a single-page PDF to the Azure Function for encryption.
