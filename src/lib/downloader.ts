@@ -4,7 +4,7 @@ import { MatchedPayslip } from '../types';
 
 export function downloadSinglePayslip(payslip: MatchedPayslip): void {
   if (!payslip.pdfBytes) throw new Error('No PDF data available');
-  const blob = new Blob([new Uint8Array(payslip.pdfBytes)], { type: 'application/pdf' });
+  const blob = new Blob([payslip.pdfBytes.buffer as ArrayBuffer], { type: 'application/pdf' });
   saveAs(blob, payslip.fileName);
 }
 
