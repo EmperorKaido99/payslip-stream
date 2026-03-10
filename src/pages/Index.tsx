@@ -1,7 +1,5 @@
-import { BatchProcessor } from '@/components/payslip/BatchProcessor';
+import { PayslipApp } from '../components/PayslipApp';
 
-const Index = () => {
-  return <BatchProcessor />;
-};
-
-export default Index;
+export default function Index() {
+  return <PayslipApp />;
+}
